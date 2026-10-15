@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>お祭り 会計・注文管理アプリ</title>
+    
+    <!-- PWA用マニフェストを1ファイル内に埋め込む設定 -->
+    <link rel="manifest" href='data:application/manifest+json;charset=utf-8,{
+        "name": "お祭り 会計・注文管理アプリ",
+        "short_name": "お祭りレジ",
+        "start_url": "./index.html",
+        "display": "standalone",
+        "background_color": "#f5f5f5",
+        "theme_color": "#d9534f"
+    }'>
+    
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        h1 {
+            font-size: 1.2rem;
+            text-align: center;
+            margin-bottom: 10px;
+            color: #d9534f;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        /* タブのデザイン */
+        .tab-menu {
+            display: flex;
+            margin-bottom: 15px;
+            background: #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            background: #e0e0e0;
+            border: none;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .tab-btn.active {
+            background: #d9534f;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .card {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h2 {
+            font-size: 1rem;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
+            margin-top: 0;
+        }
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .menu-btn {
+            background-color: #5bc0de;
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .menu-btn:active {
+            background-color: #31b0d5;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+        th {
+            background-color: #f8f9fa;
+        }
+        .total-display {
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-align: right;
+            margin: 10px 0;
+        }
+        .input-group {
+            margin: 10px 0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .input-group input {
+            padding: 8px;
+            font-size: 1rem;
+            width: 120px;
+        }
+        /* クイックボタン用グリッド */
+        .quick-cash-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .quick-btn {
+            background-color: #f0ad4e;
+            color: white;
+            border: none;
+            padding: 8px;
+            font-size: 0.9rem;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .quick-btn:active {
+            background-color: #ec971f;
+        }
+        .action-btn {
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .action-btn:active {
+            background-color: #4cae4c;
+        }
+        .clear-btn {
+            background-color: #f0ad4e;
+            margin-top: 5px;
+        }
+        .delete-btn {
+            background-color: #d9534f;
+            color: white;
+            border: none;
+            padding: 5px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .sales-info {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #d9534f;
+        }
+        /* ステータスバッジ用 */
+        .status-waiting { color: #d9534f; font-weight: bold; }
+        .status-cooking { color: #f0ad4e; font-weight: bold; }
+        .status-done { color: #5cb85c; font-weight: bold; }
+        .status-btn {
+            padding: 5px 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>祭り 会計・注文管理アプリ</h1>
+
+    <!-- 画面切替タブ -->
+    <div class="tab-menu">
+        <button class="tab-btn active" onclick="switchTab('checkout')">1. レジ</button>
+        <button class="tab-btn" onclick="switchTab('orders')">2. 厨房</button>
+        <button class="tab-btn" onclick="switchTab('settings')">3. メニュー設定</button>
+    </div>
+
+    <!-- TAB 1: レジ・会計画面 -->
+    <div id="tab-checkout" class="tab-content active">
+        <div class="card">
+            <h2>商品を選ぶ</h2>
+            <div id="menu-buttons-grid" class="menu-grid">
+                <!-- メニューボタン -->
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>現在の会計</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>商品名</th>
+                        <th>単価</th>
+                        <th>数量</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="order-list">
+                    <!-- 選択中アイテム -->
+                </tbody>
+            </table>
+
+            <div class="total-display">
+                合計: <span id="total-price">0</span> 円
+            </div>
+
+            <div class="input-group">
+                <label for="received-amount">お預かり:</label>
+                <input type="number" id="received-amount" placeholder="金額を入力" oninput="calcChange()">
+            </div>
+
+            <!-- お預かりクイックボタン -->
+            <div class="quick-cash-grid">
+                <button class="quick-btn" onclick="setExactAmount()">ちょうど</button>
+                <button class="quick-btn" onclick="addCash(500)">500円</button>
+                <button class="quick-btn" onclick="addCash(1000)">1000円</button>
+                <button class="quick-btn" onclick="addCash(2000)">2000円</button>
+            </div>
+
+            <div class="total-display" style="font-size: 1rem; color: #0275d8;">
+                お釣り: <span id="change-price">0</span> 円
+            </div>
+
+            <button class="action-btn" onclick="completeCheckout()">会計を確定する</button>
+            <button class="action-btn clear-btn" onclick="clearOrder()">注文をリセット</button>
+        </div>
+
+        <div class="card">
+            <h2>売上情報</h2>
+            <p>本日の総売上: <span id="total-sales" class="sales-info">0</span> 円</p>
+        </div>
+    </div>
+
+    <!-- TAB 2: 注文管理 (厨房) 画面 -->
+    <div id="tab-orders" class="tab-content">
+        <div class="card">
+            <h2>調理・提供 注文リスト</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>注文番号</th>
+                        <th>注文内容</th>
+                        <th>金額</th>
+                        <th>状態</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="kitchen-list">
+                    <!-- 厨房向け注文リスト -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 3: メニュー設定画面 -->
+    <div id="tab-settings" class="tab-content">
+        <div class="card">
+            <h2>商品を追加する</h2>
+            <div class="input-group">
+                <label>商品名:</label>
+                <input type="text" id="new-item-name" placeholder="例: わたあめ" style="flex:1;">
+            </div>
+            <div class="input-group">
+                <label>金額(円):</label>
+                <input type="number" id="new-item-price" placeholder="例: 300" style="flex:1;">
+            </div>
+            <button class="action-btn" onclick="addNewMenu()">メニューに追加</button>
+        </div>
+
+        <div class="card">
+            <h2>登録済みメニュー一覧</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>商品名</th>
+                        <th>金額</th>
+                        <th>削除</th>
+                    </tr>
+                </thead>
+                <tbody id="menu-setting-list">
+                    <!-- 設定用メニューリスト -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    let menuItems = [
+        { name: '焼きそば', price: 500 },
+        { name: 'たこ焼き', price: 400 },
+        { name: 'かき氷', price: 300 },
+        { name: 'チョコバナナ', price: 300 }
+    ];
+
+    let currentOrder = [];
+    let totalSales = 0;
+    let kitchenOrders = [];
+    let orderCounter = 1;
+
+    window.onload = function() {
+        renderMenuButtons();
+        renderMenuSettings();
+    };
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+        if (tabName === 'checkout') {
+            document.querySelector('.tab-menu button:nth-child(1)').classList.add('active');
+            document.getElementById('tab-checkout').classList.add('active');
+        } else if (tabName === 'orders') {
+            document.querySelector('.tab-menu button:nth-child(2)').classList.add('active');
+            document.getElementById('tab-orders').classList.add('active');
+        } else if (tabName === 'settings') {
+            document.querySelector('.tab-menu button:nth-child(3)').classList.add('active');
+            document.getElementById('tab-settings').classList.add('active');
+        }
+    }
+
+    function renderMenuButtons() {
+        let grid = document.getElementById('menu-buttons-grid');
+        grid.innerHTML = '';
+        menuItems.forEach(item => {
+            let btn = document.createElement('button');
+            btn.className = 'menu-btn';
+            btn.innerText = `${item.name} (¥${item.price})`;
+            btn.onclick = () => addItem(item.name, item.price);
+            grid.appendChild(btn);
+        });
+    }
+
+    function renderMenuSettings() {
+        let tbody = document.getElementById('menu-setting-list');
+        tbody.innerHTML = '';
+        menuItems.forEach((item, index) => {
+            let row = `<tr>
+                <td><input type="text" value="${item.name}" onchange="updateMenuName(${index}, this.value)" style="width:100%;"></td>
+                <td><input type="number" value="${item.price}" onchange="updateMenuPrice(${index}, this.value)" style="width:80px;"></td>
+                <td><button class="delete-btn" onclick="deleteMenu(${index})">削除</button></td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    }
+
+    function addNewMenu() {
+        let nameInput = document.getElementById('new-item-name');
+        let priceInput = document.getElementById('new-item-price');
+        let name = nameInput.value.trim();
+        let price = parseInt(priceInput.value);
+
+        if (!name || isNaN(price) || price < 0) {
+            alert('正しい商品名と金額を入力してください');
+            return;
+        }
+
+        menuItems.push({ name: name, price: price });
+        nameInput.value = '';
+        priceInput.value = '';
+
+        renderMenuButtons();
+        renderMenuSettings();
+        alert(`「${name}」を追加しました！`);
+    }
+
+    function updateMenuName(index, newName) {
+        if (newName.trim() === '') return;
+        menuItems[index].name = newName.trim();
+        renderMenuButtons();
+    }
+
+    function updateMenuPrice(index, newPrice) {
+        let price = parseInt(newPrice);
+        if (isNaN(price) || price < 0) return;
+        menuItems[index].price = price;
+        renderMenuButtons();
+    }
+
+    function deleteMenu(index) {
+        if (confirm(`「${menuItems[index].name}」を削除してもよろしいですか？`)) {
+            menuItems.splice(index, 1);
+            renderMenuButtons();
+            renderMenuSettings();
+        }
+    }
+
+    function addItem(name, price) {
+        let existing = currentOrder.find(item => item.name === name);
+        if (existing) {
+            existing.quantity += 1;
+        } else {
+            currentOrder.push({ name: name, price: price, quantity: 1 });
+        }
+        updateOrderDisplay();
+    }
+
+    function changeQuantity(index, delta) {
+        currentOrder[index].quantity += delta;
+        if (currentOrder[index].quantity <= 0) {
+            currentOrder.splice(index, 1);
+        }
+        updateOrderDisplay();
+    }
+
+    function updateOrderDisplay() {
+        let tbody = document.getElementById('order-list');
+        tbody.innerHTML = '';
+        let total = 0;
+
+        currentOrder.forEach((item, index) => {
+            let subtotal = item.price * item.quantity;
+            total += subtotal;
+
+            let row = `<tr>
+                <td>${item.name}</td>
+                <td>¥${item.price}</td>
+                <td>${item.quantity}</td>
+                <td>
+                    <button onclick="changeQuantity(${index}, 1)">＋</button>
+                    <button onclick="changeQuantity(${index}, -1)">－</button>
+                </td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+
+        document.getElementById('total-price').innerText = total;
+        calcChange();
+    }
+
+    function calcChange() {
+        let total = currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        let received = parseInt(document.getElementById('received-amount').value) || 0;
+        let change = received - total;
+        document.getElementById('change-price').innerText = change >= 0 ? change : 0;
+    }
+
+    function setExactAmount() {
+        let total = currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        document.getElementById('received-amount').value = total;
+        calcChange();
+    }
+
+    function addCash(amount) {
+        document.getElementById('received-amount').value = amount;
+        calcChange();
+    }
+
+    function clearOrder() {
+        currentOrder = [];
+        document.getElementById('received-amount').value = '';
+        updateOrderDisplay();
+    }
+
+    function completeCheckout() {
+        let total = currentOrder.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        if (total === 0) {
+            alert('注文がありません');
+            return;
+        }
+
+        let received = parseInt(document.getElementById('received-amount').value) || 0;
+        if (received < total) {
+            alert('お預かり金額が不足しています');
+            return;
+        }
+
+        totalSales += total;
+        document.getElementById('total-sales').innerText = totalSales;
+
+        let details = currentOrder.map(item => `${item.name}×${item.quantity}`).join(', ');
+        
+        kitchenOrders.unshift({
+            id: Date.now(),
+            orderNumber: orderCounter++,
+            details: details,
+            total: total,
+            status: '調理待ち'
+        });
+
+        updateKitchenDisplay();
+
+        alert(`会計完了！ お釣りは ${received - total} 円です。`);
+        clearOrder();
+    }
+
+    function updateKitchenDisplay() {
+        let tbody = document.getElementById('kitchen-list');
+        tbody.innerHTML = '';
+        
+        kitchenOrders.forEach((order) => {
+            let statusClass = 'status-waiting';
+            let nextActionBtn = `<button class="status-btn" onclick="updateStatus(${order.id}, '調理中')">調理中にする</button>`;
+            
+            if (order.status === '調理中') {
+                statusClass = 'status-cooking';
+                nextActionBtn = `<button class="status-btn" onclick="updateStatus(${order.id}, '提供済み')">提供済みにする</button>`;
+            } else if (order.status === '提供済み') {
+                statusClass = 'status-done';
+                nextActionBtn = `<span style="color:#888;">完了</span>`;
+            }
+
+            let row = `<tr>
+                <td><strong>No. ${order.orderNumber}</strong></td>
+                <td>${order.details}</td>
+                <td>¥${order.total}</td>
+                <td><span class="${statusClass}">${order.status}</span></td>
+                <td>${nextActionBtn}</td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    }
+
+    function updateStatus(id, newStatus) {
+        let order = kitchenOrders.find(o => o.id === id);
+        if (order) {
+            order.status = newStatus;
+            updateKitchenDisplay();
+        }
+    }
+</script>
+
+</body>
+</html>
